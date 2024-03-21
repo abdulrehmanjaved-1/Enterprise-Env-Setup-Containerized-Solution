@@ -1,0 +1,64 @@
+version: '3.7'
+
+services:
+  nextcloud:
+    image: nextcloud
+    container_name: nextcloud
+    restart: unless-stopped
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_PASSWORD=your_mysql_password
+    volumes:
+      - nextcloud:/var/www/html
+    networks:
+      - proxy
+
+  paperless:
+    image: paperless-ng
+    container_name: paperless
+    restart: unless-stopped
+    environment:
+      - PAPERLESS_DATABASE_URL=sqlite:////config/db.sqlite3
+    volumes:
+      - paperless:/config
+    networks:
+      - proxy
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    restart: unless-stopped
+    environment:
+      - PMA_HOST=mysql
+      - PMA_USER=root
+      - PMA_PASSWORD=your_mysql_root_password
+    ports:
+      - "8087:80"
+    networks:
+      - proxy
+
+  nginx:
+    image: nginx
+    container_name: nginx
+    restart: unless-stopped
+    ports:
+      - "8086:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - /etc/letsencrypt:/etc/letsencrypt
+    networks:
+      - proxy
+    depends_on:
+      - nextcloud
+      - paperless
+      - phpmyadmin
+
+networks:
+  proxy:
+
+volumes:
+  nextcloud:
+  paperless:

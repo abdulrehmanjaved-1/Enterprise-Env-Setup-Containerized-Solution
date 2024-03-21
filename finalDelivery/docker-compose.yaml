@@ -1,0 +1,187 @@
+version: '3.7'
+
+services:
+  nextcloud:
+    image: nextcloud
+    container_name: nextcloud
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      - MYSQL_HOST=paperless
+      - MYSQL_DATABASE=paperless
+      - MYSQL_USER=paperless
+      - MYSQL_PASSWORD=paperless
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nextcloud.rule=Host(`woltz.one`)"
+      - "traefik.http.routers.nextcloud.entrypoints=websecure"
+      - "traefik.http.routers.nextcloud.tls.certresolver=myresolver"
+    networks:
+      - proxy
+
+  # broker:
+  #   image: docker.io/library/redis:7
+  #   restart: unless-stopped
+  #   volumes:
+  #     - redisdata:/data
+  #   networks:
+  #     - proxy
+
+  # db:
+  #   image: docker.io/library/postgres:15
+  #   restart: unless-stopped
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   environment:
+  #     POSTGRES_DB: paperless
+  #     POSTGRES_USER: paperless
+  #     POSTGRES_PASSWORD: paperless
+  #   networks:
+  #     - proxy
+
+  # webserver:
+  #   image: ghcr.io/paperless-ngx/paperless-ngx:latest
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - db
+  #     - broker
+  #   volumes:
+  #     - data:/usr/src/paperless/data
+  #     - media:/usr/src/paperless/media
+  #     - ./export:/usr/src/paperless/export
+  #     - ./paperless_documents:/usr/src/paperless/media/documents/originals/
+  #   environment:
+  #     PAPERLESS_REDIS: redis://broker:6379
+  #     PAPERLESS_DBHOST: db
+  #     USERMAP_UID: 1000
+  #     USERMAP_GID: 100
+  #   ports:
+  #     - 8089:8000
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.paperless.rule=Host(`paperless.example.com`)"
+  #     - "traefik.http.routers.paperless.entrypoints=websecure"
+  #     - "traefik.http.routers.paperless.tls.certresolver=myresolver"  
+  #   networks:
+  #     - proxy
+  broker:
+    image: docker.io/library/redis:7
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    networks:
+      - proxy
+  db:
+    image: docker.io/library/mariadb:10
+    restart: unless-stopped
+    volumes:
+      - dbdata:/var/lib/mysql
+    environment:
+      MARIADB_HOST: paperless
+      MARIADB_DATABASE: paperless
+      MARIADB_USER: paperless
+      MARIADB_PASSWORD: paperless
+      MARIADB_ROOT_PASSWORD: paperless
+    networks:
+      - proxy  
+  webserver:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    restart: unless-stopped
+    depends_on:
+      - db
+      - broker
+    # ports:
+    #   - "8089:8000"
+    volumes:
+      - data:/usr/src/paperless/data
+      - media:/usr/src/paperless/media
+      - ./export:/usr/src/paperless/export
+      - ./consume:/usr/src/paperless/consume
+    env_file: docker-compose.env
+    environment:
+      PAPERLESS_REDIS: redis://broker:6379
+      PAPERLESS_DBENGINE: mariadb
+      PAPERLESS_DBHOST: db
+      PAPERLESS_DBUSER: paperless # only needed if non-default username
+      PAPERLESS_DBPASS: paperless # only needed if non-default password
+      PAPERLESS_DBPORT: 3306
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.paperless.rule=Host(`dms.woltz.one`)"
+      - "traefik.http.routers.paperless.entrypoints=websecure"
+      - "traefik.http.routers.paperless.tls.certresolver=myresolver" 
+    networks:
+      - proxy
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    restart: unless-stopped
+    environment:
+      - PMA_HOST=db
+      - PMA_USER=paperless
+      - PMA_PASSWORD=paperless
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.phpmyadmin.rule=Host(`pma.woltz.one`)"
+      - "traefik.http.routers.phpmyadmin.entrypoints=websecure"
+      - "traefik.http.routers.phpmyadmin.tls.certresolver=myresolver"
+      - "traefik.http.routers.phpmyadmin.middlewares=phpmyadmin-auth"
+
+    networks:
+      - proxy
+
+  mysql:
+    image: mysql:latest
+    container_name: mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: your_mysql_root_password
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+      MYSQL_PASSWORD: your_mysql_password
+    networks:
+      - proxy
+
+  traefik:
+    image: "traefik:latest"
+    container_name: "traefik"
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=youremail@gmail.com"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "8011:80"
+      - "443:443"
+    volumes:
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.example.com`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.tls.certresolver=myresolver"      
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
+      - "traefik.http.middlewares.phpmyadmin-auth.basicauth.users=USER:$$2y$$05$$DojgtDzNB1X8WAqZCKjnAO5p8tbLcMfTrLIqmZor.wrvTQ2X2LilS"
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=USER:$$2y$$05$$DojgtDzNB1X8WAqZCKjnAO5p8tbLcMfTrLIqmZor.wrvTQ2X2LilS"
+
+networks:
+  proxy:
+# volumes:
+#   data:
+#   media:
+#   pgdata:
+#   redisdata:
+volumes:
+  data:
+  media:
+  dbdata:
+  redisdata:
