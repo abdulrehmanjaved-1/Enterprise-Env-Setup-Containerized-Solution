@@ -1,0 +1,117 @@
+version: '3.7'
+
+services:
+  nextcloud:
+    image: nextcloud
+    container_name: nextcloud
+    restart: unless-stopped
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_PASSWORD=your_mysql_password
+    # volumes:
+    #   - ./paperless-ngx/paperless_documents:/var/www/html/paperless_documents
+    networks:
+      - proxy
+    ports:
+      - "8088:80"  # Corrected port mapping for Nextcloud
+
+  mysql:
+    image: mysql:latest
+    container_name: mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: your_mysql_root_password
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+      MYSQL_PASSWORD: your_mysql_password
+    networks:
+      - proxy
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    restart: unless-stopped
+    environment:
+      - PMA_HOST=mysql
+      - PMA_USER=root
+      - PMA_PASSWORD=your_mysql_root_password
+    ports:
+      - "8087:80"
+    networks:
+      - proxy
+    # depends_on:
+    #   - mysql
+
+networks:
+  proxy:
+
+
+# volumes:
+#   # nextcloud:
+#   mysql_data:
+
+
+
+# version: '3.7'
+
+# services:
+#   nextcloud:
+#     image: nextcloud
+#     container_name: nextcloud
+#     restart: unless-stopped
+#     environment:
+#       - MYSQL_HOST=mysql
+#       - MYSQL_DATABASE=nextcloud
+#       - MYSQL_USER=nextcloud
+#       - MYSQL_PASSWORD=your_mysql_password
+#     networks:
+#       - proxy
+#     ports:
+#      - 8088:80  
+
+#   paperless:
+#     image: paperlessngx/paperless-ngx
+#     container_name: paperless
+#     restart: unless-stopped
+#     environment:
+#       - PAPERLESS_DATABASE_URL=sqlite:////config/db.sqlite3
+#     networks:
+#       - proxy
+
+#   phpmyadmin:
+#     image: phpmyadmin/phpmyadmin
+#     container_name: phpmyadmin
+#     restart: unless-stopped
+#     environment:
+#       - PMA_HOST=mysql
+#       - PMA_USER=root
+#       - PMA_PASSWORD=your_mysql_root_password
+#     ports:
+#       - "8086:80"
+#     networks:
+#       - proxy
+#     depends_on:
+#       - mysql
+
+#   mysql:
+#     image: mysql:latest
+#     container_name: mysql
+#     restart: unless-stopped
+#     environment:
+#       MYSQL_ROOT_PASSWORD: your_mysql_root_password
+#       MYSQL_DATABASE: nextcloud
+#       MYSQL_USER: nextcloud
+#       MYSQL_PASSWORD: your_mysql_password
+#     volumes:
+#       - mysql_data:/var/lib/mysql
+#     networks:
+#       - proxy
+
+# networks:
+#   proxy:
+
+# volumes:
+#   nextcloud:
+#   mysql_data:
+
